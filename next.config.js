@@ -1,48 +1,34 @@
-const path = require('path')
-const SWPrecacheWebpackPlugin = require('sw-precache-webpack-plugin')
+const withOffline = require('next-offline')
 
-module.exports = {
-	webpack: (config, { dev }) => {
-		/**
-		 * Install and Update our Service worker
-		 * on our main entry file :)
-		 * Reason: https://github.com/ooade/NextSimpleStarter/issues/32
-		 */
-		const oldEntry = config.entry
-
-		config.entry = () =>
-			oldEntry().then(entry => {
-				entry['main.js'] && entry['main.js'].push(path.resolve('./utils/offline'))
-				return entry
-			})
-
-		/* Enable only in Production */
-		if (!dev) {
-			// Service Worker
-			config.plugins.push(
-				new SWPrecacheWebpackPlugin({
-					cacheId: 'next-ss',
-					filepath: './static/sw.js',
-					minify: true,
-					staticFileGlobsIgnorePatterns: [/\.next\//],
-					staticFileGlobs: [
-						'static/**/*' // Precache all static files by default
-					],
-					runtimeCaching: [
-						// Example with different handlers
-						{
-							handler: 'fastest',
-							urlPattern: /[.](png|jpg|css)/
-						},
-						{
-							handler: 'networkFirst',
-							urlPattern: /^http.*/ //cache all files
-						}
-					]
-				})
-			)
-		}
-
-		return config
+module.exports = withOffline({
+	target: 'serverless',
+	workboxOpts: {
+		swDest: 'static/service-worker.js',
+		runtimeCaching: [
+			{
+				urlPattern: /[.](png|jpg|ico|css)/,
+				handler: 'cacheFirst',
+				options: {
+					cacheName: 'assets-cache',
+					cacheableResponse: {
+						statuses: [0, 200]
+					}
+				}
+			},
+			{
+				urlPattern: /^https:\/\/code\.getmdl\.io.*/,
+				handler: 'cacheFirst',
+				options: {
+					cacheName: 'lib-cache'
+				}
+			},
+			{
+				urlPattern: /^http.*/,
+				handler: 'networkFirst',
+				options: {
+					cacheName: 'http-cache'
+				}
+			}
+		]
 	}
-}
+})
